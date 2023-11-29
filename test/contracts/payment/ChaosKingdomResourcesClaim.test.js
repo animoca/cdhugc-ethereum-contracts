@@ -134,7 +134,7 @@ runBehaviorTests('ChaosKingdomResourcesClaim', config, function (deployFn) {
     context('onERC20Received(address,address,uint256,bytes)', function () {
       context('with a merkle root set', function () {
         beforeEach(async function () {
-          this.epochId = 1;
+          this.epochId = ethers.zeroPadValue('0x9a794a09cf7b4fb99e2e3d4aeac42eab', 32);
 
           this.elements = [
             {
@@ -188,8 +188,8 @@ runBehaviorTests('ChaosKingdomResourcesClaim', config, function (deployFn) {
 
           const proof = this.tree.getHexProof(keccak256(this.leaves[0]));
           const data = ethers.AbiCoder.defaultAbiCoder().encode(
-            ['bytes32', 'uint256', 'uint256', 'bytes32[]', 'uint256[]', 'uint256[]'],
-            [ethers.ZeroHash, this.epochId, this.elements[0].costs, proof, this.elements[0].tokenIds, this.elements[0].amounts]
+            ['bytes32', 'uint256', 'bytes32[]', 'uint256[]', 'uint256[]'],
+            [ethers.ZeroHash, this.epochId, proof, this.elements[0].tokenIds, this.elements[0].amounts]
           );
 
           await expect(this.feeContract.connect(claimer1).safeTransfer(await this.contract.getAddress(), 10, data))
@@ -202,8 +202,8 @@ runBehaviorTests('ChaosKingdomResourcesClaim', config, function (deployFn) {
 
           const proof = this.tree.getHexProof(keccak256(this.leaves[0]));
           const data = ethers.AbiCoder.defaultAbiCoder().encode(
-            ['bytes32', 'uint256', 'uint256', 'bytes32[]', 'uint256[]', 'uint256[]'],
-            [this.root, this.epochId, this.elements[0].costs, proof, this.elements[0].tokenIds, this.elements[0].amounts]
+            ['bytes32', 'uint256', 'bytes32[]', 'uint256[]', 'uint256[]'],
+            [this.root, this.epochId, proof, this.elements[0].tokenIds, this.elements[0].amounts]
           );
 
           await this.feeContract.connect(claimer1).safeTransfer(await this.contract.getAddress(), 10, data);
@@ -218,8 +218,8 @@ runBehaviorTests('ChaosKingdomResourcesClaim', config, function (deployFn) {
 
           const proof = this.tree.getHexProof(keccak256(this.leaves[1]));
           const data = ethers.AbiCoder.defaultAbiCoder().encode(
-            ['bytes32', 'uint256', 'uint256', 'bytes32[]', 'uint256[]', 'uint256[]'],
-            [this.root, this.epochId, this.elements[0].costs, proof, this.elements[0].tokenIds, this.elements[0].amounts]
+            ['bytes32', 'uint256', 'bytes32[]', 'uint256[]', 'uint256[]'],
+            [this.root, this.epochId, proof, this.elements[0].tokenIds, this.elements[0].amounts]
           );
 
           await expect(this.feeContract.connect(claimer1).safeTransfer(await this.contract.getAddress(), 10, data))
@@ -232,8 +232,8 @@ runBehaviorTests('ChaosKingdomResourcesClaim', config, function (deployFn) {
 
           const proof = this.tree.getHexProof(keccak256(this.leaves[0]));
           const data = ethers.AbiCoder.defaultAbiCoder().encode(
-            ['bytes32', 'uint256', 'uint256', 'bytes32[]', 'uint256[]', 'uint256[]'],
-            [this.root, this.epochId, this.elements[0].costs, proof, this.elements[0].tokenIds, this.elements[0].amounts]
+            ['bytes32', 'uint256', 'bytes32[]', 'uint256[]', 'uint256[]'],
+            [this.root, this.epochId, proof, this.elements[0].tokenIds, this.elements[0].amounts]
           );
 
           await expect(this.feeContract.connect(claimer1).safeTransfer(await this.contract.getAddress(), 10, data))
@@ -246,8 +246,8 @@ runBehaviorTests('ChaosKingdomResourcesClaim', config, function (deployFn) {
 
           const proof = this.tree.getHexProof(keccak256(this.leaves[0]));
           const data = ethers.AbiCoder.defaultAbiCoder().encode(
-            ['bytes32', 'uint256', 'uint256', 'bytes32[]', 'uint256[]', 'uint256[]'],
-            [this.root, this.epochId, this.elements[0].costs, proof, this.elements[0].tokenIds, this.elements[0].amounts]
+            ['bytes32', 'uint256', 'bytes32[]', 'uint256[]', 'uint256[]'],
+            [this.root, this.epochId, proof, this.elements[0].tokenIds, this.elements[0].amounts]
           );
 
           await expect(this.feeContract.connect(claimer1).safeTransfer(await this.contract.getAddress(), 10, data))
@@ -266,8 +266,8 @@ runBehaviorTests('ChaosKingdomResourcesClaim', config, function (deployFn) {
 
           const proof = this.tree.getHexProof(keccak256(this.leaves[0]));
           const data = ethers.AbiCoder.defaultAbiCoder().encode(
-            ['bytes32', 'uint256', 'uint256', 'bytes32[]', 'uint256[]', 'uint256[]'],
-            [this.root, this.epochId, this.elements[0].costs, proof, this.elements[0].tokenIds, this.elements[0].amounts]
+            ['bytes32', 'uint256', 'bytes32[]', 'uint256[]', 'uint256[]'],
+            [this.root, this.epochId, proof, this.elements[0].tokenIds, this.elements[0].amounts]
           );
           await this.feeContract.connect(claimer1).safeTransfer(await this.contract.getAddress(), 10, data);
 

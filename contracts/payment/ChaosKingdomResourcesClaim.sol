@@ -27,7 +27,7 @@ contract ChaosKingdomResourcesClaim is ContractOwnership, ERC20Receiver, Forward
 
     event MerkleRootDeprecated(bytes32 root);
 
-    event PayoutClaimed(bytes32 indexed root, uint256 epochId, uint256 costs, address indexed recipient, uint256[] ids, uint256[] values);
+    event PayoutClaimed(bytes32 indexed root, bytes32 epochId, uint256 fee, address indexed recipient, uint256[] ids, uint256[] values);
 
     event FeeContractSet(address newContract);
 
@@ -35,9 +35,9 @@ contract ChaosKingdomResourcesClaim is ContractOwnership, ERC20Receiver, Forward
 
     error MerkleRootDoesNotExist(bytes32 merkleRoot);
 
-    error AlreadyClaimed(address recipient, uint256[] ids, uint256[] values, uint256 costs, uint256 epochId);
+    error AlreadyClaimed(address recipient, uint256[] ids, uint256[] values, uint256 fee, bytes32 epochId);
 
-    error InvalidProof(address recipient, uint256[] ids, uint256[] values, uint256 costs, uint256 epochId);
+    error InvalidProof(address recipient, uint256[] ids, uint256[] values, uint256 fee, bytes32 epochId);
 
     error FeeContractMismatch(address sender, address expectedContract);
 
@@ -65,20 +65,22 @@ contract ChaosKingdomResourcesClaim is ContractOwnership, ERC20Receiver, Forward
     function onERC20Received(address operator, address from, uint256 value, bytes calldata data) external override returns (bytes4 magicValue) {
         if (address(feeContract) != msg.sender) revert FeeContractMismatch(msg.sender, address(feeContract));
 
-        (bytes32 merkleRoot, uint256 epochId, uint256 costs, bytes32[] memory proof, uint256[] memory ids, uint256[] memory values) = abi.decode(
+        uint256 fee = value;
+
+        (bytes32 merkleRoot, bytes32 epochId, bytes32[] memory proof, uint256[] memory ids, uint256[] memory values) = abi.decode(
             data,
-            (bytes32, uint256, uint256, bytes32[], uint256[], uint256[])
+            (bytes32, bytes32, bytes32[], uint256[], uint256[])
         );
         if (!roots[merkleRoot]) revert MerkleRootDoesNotExist(merkleRoot);
 
-        bytes32 leaf = keccak256(abi.encodePacked(from, ids, values, costs, epochId));
+        bytes32 leaf = keccak256(abi.encodePacked(from, ids, values, fee, epochId));
 
-        if (claimed[leaf]) revert AlreadyClaimed(from, ids, values, costs, epochId);
-        if (!proof.verify(merkleRoot, leaf)) revert InvalidProof(from, ids, values, costs, epochId);
+        if (claimed[leaf]) revert AlreadyClaimed(from, ids, values, fee, epochId);
+        if (!proof.verify(merkleRoot, leaf)) revert InvalidProof(from, ids, values, fee, epochId);
 
         claimed[leaf] = true;
 
-        emit PayoutClaimed(merkleRoot, epochId, costs, from, ids, values);
+        emit PayoutClaimed(merkleRoot, epochId, fee, from, ids, values);
 
         REWARD_CONTRACT.safeBatchMint(from, ids, values, "");
 
