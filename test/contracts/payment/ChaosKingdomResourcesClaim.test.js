@@ -14,13 +14,13 @@ const {runBehaviorTests} = require('@animoca/ethereum-contract-helpers/src/test/
 const config = {
   immutable: {
     name: 'ChaosKingdomResourcesClaimMock',
-    ctorArguments: ['feeContract_', 'rewardContract_', 'forwarderRegistry'],
+    ctorArguments: ['feeContract', 'rewardContract', 'forwarderRegistry'],
     testMsgData: true,
   },
   defaultArguments: {
     forwarderRegistry: getForwarderRegistryAddress,
-    feeContract_: ethers.ZeroAddress,
-    rewardContract_: ethers.ZeroAddress,
+    feeContract: ethers.ZeroAddress,
+    rewardContract: ethers.ZeroAddress,
   },
 };
 
@@ -46,7 +46,7 @@ runBehaviorTests('ChaosKingdomResourcesClaim', config, function (deployFn) {
       const rewardsContractAddress = await this.rewardContract.getAddress();
       const feeContractAddress = await this.feeContract.getAddress();
 
-      this.contract = await deployFn({feeContract_: feeContractAddress, rewardContract_: rewardsContractAddress});
+      this.contract = await deployFn({feeContract: feeContractAddress, rewardContract: rewardsContractAddress});
       await this.rewardContract.grantRole(await this.rewardContract.MINTER_ROLE(), await this.contract.getAddress());
     };
 
@@ -109,28 +109,6 @@ runBehaviorTests('ChaosKingdomResourcesClaim', config, function (deployFn) {
       });
     });
 
-    context('setFeeContract(address)', function () {
-      it('reverts if not sent by the contract owner', async function () {
-        await expect(this.contract.connect(other).setFeeContract(ethers.ZeroAddress))
-          .to.be.revertedWithCustomError(this.contract, 'NotContractOwner')
-          .withArgs(other.address);
-      });
-      it('reverts if address is zero', async function () {
-        await expect(this.contract.setFeeContract(ethers.ZeroAddress))
-          .to.be.revertedWithCustomError(this.contract, 'InvalidFeeContractAddress')
-          .withArgs(ethers.ZeroAddress);
-      });
-      it('feeContract is updated to the new contract', async function () {
-        const newContractAddress = await (await deployContract('ERC20MintBurn', '', '', 18, await getForwarderRegistryAddress())).getAddress();
-        await this.contract.setFeeContract(newContractAddress);
-        expect(await this.contract.feeContract()).to.equal(newContractAddress);
-      });
-      it('emits a FeeContractSet event', async function () {
-        const newContractAddress = await (await deployContract('ERC20MintBurn', '', '', 18, await getForwarderRegistryAddress())).getAddress();
-        await expect(this.contract.setFeeContract(newContractAddress)).to.emit(this.contract, 'FeeContractSet').withArgs(newContractAddress);
-      });
-    });
-
     context('onERC20Received(address,address,uint256,bytes)', function () {
       context('with a merkle root set', function () {
         beforeEach(async function () {
@@ -171,6 +149,15 @@ runBehaviorTests('ChaosKingdomResourcesClaim', config, function (deployFn) {
           this.tree = new MerkleTree(this.leaves, keccak256, {hashLeaves: true, sortPairs: true});
           this.root = this.tree.getHexRoot();
           await this.contract.addMerkleRoot(this.root);
+
+          this.feeContract.grantRole(await this.feeContract.MINTER_ROLE(), deployer.address);
+          await this.feeContract.mint(claimer1.address, 100);
+
+          this.elements[0].proof = this.tree.getHexProof(keccak256(this.leaves[0]));
+          this.elements[0].data = ethers.AbiCoder.defaultAbiCoder().encode(
+            ['bytes32', 'uint256', 'bytes32[]', 'uint256[]', 'uint256[]'],
+            [this.root, this.epochId, this.elements[0].proof, this.elements[0].tokenIds, this.elements[0].amounts]
+          );
         });
         it('reverts with FeeContractMismatch if token transferred is not from feeContract', async function () {
           const anotherContract = await deployContract('ERC20MintBurn', '', '', 18, await getForwarderRegistryAddress());
@@ -181,15 +168,11 @@ runBehaviorTests('ChaosKingdomResourcesClaim', config, function (deployFn) {
             .to.revertedWithCustomError(this.contract, 'FeeContractMismatch')
             .withArgs(await anotherContract.getAddress(), await this.feeContract.getAddress());
         });
-
         it('reverts with MerkleRootDoesNotExist if the merkle root does not exist', async function () {
-          this.feeContract.grantRole(await this.feeContract.MINTER_ROLE(), deployer.address);
-          await this.feeContract.mint(claimer1.address, 10);
-
-          const proof = this.tree.getHexProof(keccak256(this.leaves[0]));
+          const mockRoot = ethers.ZeroHash;
           const data = ethers.AbiCoder.defaultAbiCoder().encode(
             ['bytes32', 'uint256', 'bytes32[]', 'uint256[]', 'uint256[]'],
-            [ethers.ZeroHash, this.epochId, proof, this.elements[0].tokenIds, this.elements[0].amounts]
+            [mockRoot, this.epochId, this.elements[0].proof, this.elements[0].tokenIds, this.elements[0].amounts]
           );
 
           await expect(this.feeContract.connect(claimer1).safeTransfer(await this.contract.getAddress(), 10, data))
@@ -197,29 +180,17 @@ runBehaviorTests('ChaosKingdomResourcesClaim', config, function (deployFn) {
             .withArgs(ethers.ZeroHash);
         });
         it('reverts with AlreadyClaimed if the leaf is claimed twice', async function () {
-          this.feeContract.grantRole(await this.feeContract.MINTER_ROLE(), deployer.address);
-          await this.feeContract.mint(claimer1.address, 20);
+          await this.feeContract.connect(claimer1).safeTransfer(await this.contract.getAddress(), 10, this.elements[0].data);
 
-          const proof = this.tree.getHexProof(keccak256(this.leaves[0]));
-          const data = ethers.AbiCoder.defaultAbiCoder().encode(
-            ['bytes32', 'uint256', 'bytes32[]', 'uint256[]', 'uint256[]'],
-            [this.root, this.epochId, proof, this.elements[0].tokenIds, this.elements[0].amounts]
-          );
-
-          await this.feeContract.connect(claimer1).safeTransfer(await this.contract.getAddress(), 10, data);
-
-          await expect(this.feeContract.connect(claimer1).safeTransfer(await this.contract.getAddress(), 10, data))
+          await expect(this.feeContract.connect(claimer1).safeTransfer(await this.contract.getAddress(), 10, this.elements[0].data))
             .to.revertedWithCustomError(this.contract, 'AlreadyClaimed')
             .withArgs(this.elements[0].claimer, this.elements[0].tokenIds, this.elements[0].amounts, this.elements[0].costs, this.epochId);
         });
         it('reverts with InvalidProof if the proof can not be verified', async function () {
-          this.feeContract.grantRole(await this.feeContract.MINTER_ROLE(), deployer.address);
-          await this.feeContract.mint(claimer1.address, 10);
-
-          const proof = this.tree.getHexProof(keccak256(this.leaves[1]));
+          const leafOneProof = this.tree.getHexProof(keccak256(this.leaves[1]));
           const data = ethers.AbiCoder.defaultAbiCoder().encode(
             ['bytes32', 'uint256', 'bytes32[]', 'uint256[]', 'uint256[]'],
-            [this.root, this.epochId, proof, this.elements[0].tokenIds, this.elements[0].amounts]
+            [this.root, this.epochId, leafOneProof, this.elements[0].tokenIds, this.elements[0].amounts]
           );
 
           await expect(this.feeContract.connect(claimer1).safeTransfer(await this.contract.getAddress(), 10, data))
@@ -227,30 +198,12 @@ runBehaviorTests('ChaosKingdomResourcesClaim', config, function (deployFn) {
             .withArgs(this.elements[0].claimer, this.elements[0].tokenIds, this.elements[0].amounts, this.elements[0].costs, this.epochId);
         });
         it('emits a PayoutClaimed event', async function () {
-          this.feeContract.grantRole(await this.feeContract.MINTER_ROLE(), deployer.address);
-          await this.feeContract.mint(claimer1.address, 10);
-
-          const proof = this.tree.getHexProof(keccak256(this.leaves[0]));
-          const data = ethers.AbiCoder.defaultAbiCoder().encode(
-            ['bytes32', 'uint256', 'bytes32[]', 'uint256[]', 'uint256[]'],
-            [this.root, this.epochId, proof, this.elements[0].tokenIds, this.elements[0].amounts]
-          );
-
-          await expect(this.feeContract.connect(claimer1).safeTransfer(await this.contract.getAddress(), 10, data))
+          await expect(this.feeContract.connect(claimer1).safeTransfer(await this.contract.getAddress(), 10, this.elements[0].data))
             .to.emit(this.contract, 'PayoutClaimed')
             .withArgs(this.root, this.epochId, this.elements[0].costs, this.elements[0].claimer, this.elements[0].tokenIds, this.elements[0].amounts);
         });
         it('emit TransferBatch event', async function () {
-          this.feeContract.grantRole(await this.feeContract.MINTER_ROLE(), deployer.address);
-          await this.feeContract.mint(claimer1.address, 10);
-
-          const proof = this.tree.getHexProof(keccak256(this.leaves[0]));
-          const data = ethers.AbiCoder.defaultAbiCoder().encode(
-            ['bytes32', 'uint256', 'bytes32[]', 'uint256[]', 'uint256[]'],
-            [this.root, this.epochId, proof, this.elements[0].tokenIds, this.elements[0].amounts]
-          );
-
-          await expect(this.feeContract.connect(claimer1).safeTransfer(await this.contract.getAddress(), 10, data))
+          await expect(this.feeContract.connect(claimer1).safeTransfer(await this.contract.getAddress(), 10, this.elements[0].data))
             .to.emit(this.rewardContract, 'TransferBatch')
             .withArgs(
               await this.contract.getAddress(),
@@ -261,15 +214,124 @@ runBehaviorTests('ChaosKingdomResourcesClaim', config, function (deployFn) {
             );
         });
         it('mints the reward', async function () {
-          this.feeContract.grantRole(await this.feeContract.MINTER_ROLE(), deployer.address);
-          await this.feeContract.mint(claimer1.address, 10);
+          await this.feeContract.connect(claimer1).safeTransfer(await this.contract.getAddress(), 10, this.elements[0].data);
 
-          const proof = this.tree.getHexProof(keccak256(this.leaves[0]));
+          await expect(this.rewardContract.balanceOf(this.elements[0].claimer, this.elements[0].tokenIds[0])).to.eventually.equal(
+            this.elements[0].amounts[0]
+          );
+        });
+      });
+    });
+    context('claim(address,bytes,uint256)', function () {
+      context('with a merkle root set', function () {
+        beforeEach(async function () {
+          this.epochId = ethers.zeroPadValue('0x9a794a09cf7b4fb99e2e3d4aeac42eab', 32);
+
+          this.elements = [
+            {
+              claimer: claimer1.address,
+              tokenIds: [1],
+              amounts: [1],
+              costs: 10,
+            },
+            {
+              claimer: claimer2.address,
+              tokenIds: [2],
+              amounts: [2],
+              costs: 20,
+            },
+            {
+              claimer: claimer3.address,
+              tokenIds: [3],
+              amounts: [3],
+              costs: 30,
+            },
+            {
+              claimer: claimer4.address,
+              tokenIds: [4],
+              amounts: [4],
+              costs: 40,
+            },
+          ];
+          this.leaves = this.elements.map((el) =>
+            ethers.solidityPacked(
+              ['address', 'uint256[]', 'uint256[]', 'uint256', 'uint256'],
+              [el.claimer, el.tokenIds, el.amounts, el.costs, this.epochId]
+            )
+          );
+          this.tree = new MerkleTree(this.leaves, keccak256, {hashLeaves: true, sortPairs: true});
+          this.root = this.tree.getHexRoot();
+          await this.contract.addMerkleRoot(this.root);
+
+          this.feeContract.grantRole(await this.feeContract.MINTER_ROLE(), deployer.address);
+          await this.feeContract.mint(claimer1.address, 100);
+          await this.feeContract.connect(claimer1).approve(await this.contract.getAddress(), 100);
+
+          this.elements[0].proof = this.tree.getHexProof(keccak256(this.leaves[0]));
+          this.elements[0].claimData = ethers.AbiCoder.defaultAbiCoder().encode(
+            ['bytes32', 'uint256', 'bytes32[]', 'uint256[]', 'uint256[]'],
+            [this.root, this.epochId, this.elements[0].proof, this.elements[0].tokenIds, this.elements[0].amounts]
+          );
+        });
+        it('reverts with ERC20InsufficientAllowance if sender did not do approve on contract', async function () {
+          await this.feeContract.connect(claimer1).approve(await this.contract.getAddress(), 0);
+
+          await expect(this.contract.connect(claimer1).claim(claimer1.address, this.elements[0].claimData, 10))
+            .to.revertedWithCustomError(this.feeContract, 'ERC20InsufficientAllowance')
+            .withArgs(claimer1.address, await this.contract.getAddress(), 0, 10);
+        });
+        it('reverts with MerkleRootDoesNotExist if the merkle root does not exist', async function () {
+          const mockRoot = ethers.ZeroHash;
+          const data = ethers.AbiCoder.defaultAbiCoder().encode(
+            ['bytes32', 'uint256', 'bytes32[]', 'uint256[]', 'uint256[]'],
+            [mockRoot, this.epochId, this.elements[0].proof, this.elements[0].tokenIds, this.elements[0].amounts]
+          );
+
+          await expect(this.contract.connect(claimer1).claim(claimer1.address, data, 10))
+            .to.revertedWithCustomError(this.contract, 'MerkleRootDoesNotExist')
+            .withArgs(ethers.ZeroHash);
+        });
+        it('reverts with AlreadyClaimed if the leaf is claimed twice', async function () {
+          await this.contract.connect(claimer1).claim(claimer1.address, this.elements[0].claimData, 10);
+
+          await expect(this.contract.connect(claimer1).claim(claimer1.address, this.elements[0].claimData, 10))
+            .to.revertedWithCustomError(this.contract, 'AlreadyClaimed')
+            .withArgs(this.elements[0].claimer, this.elements[0].tokenIds, this.elements[0].amounts, this.elements[0].costs, this.epochId);
+        });
+        it('reverts with InvalidProof if the proof can not be verified', async function () {
+          const proof = this.tree.getHexProof(keccak256(this.leaves[1]));
           const data = ethers.AbiCoder.defaultAbiCoder().encode(
             ['bytes32', 'uint256', 'bytes32[]', 'uint256[]', 'uint256[]'],
             [this.root, this.epochId, proof, this.elements[0].tokenIds, this.elements[0].amounts]
           );
-          await this.feeContract.connect(claimer1).safeTransfer(await this.contract.getAddress(), 10, data);
+
+          await expect(this.contract.connect(claimer1).claim(claimer1.address, data, 10))
+            .to.revertedWithCustomError(this.contract, 'InvalidProof')
+            .withArgs(this.elements[0].claimer, this.elements[0].tokenIds, this.elements[0].amounts, this.elements[0].costs, this.epochId);
+        });
+        it('emits a PayoutClaimed event', async function () {
+          await expect(this.contract.connect(claimer1).claim(claimer1.address, this.elements[0].claimData, 10))
+            .to.emit(this.contract, 'PayoutClaimed')
+            .withArgs(this.root, this.epochId, this.elements[0].costs, this.elements[0].claimer, this.elements[0].tokenIds, this.elements[0].amounts);
+        });
+        it('emit Transfer event', async function () {
+          await expect(this.contract.connect(claimer1).claim(claimer1.address, this.elements[0].claimData, 10))
+            .to.emit(this.feeContract, 'Transfer')
+            .withArgs(this.elements[0].claimer, await this.contract.getAddress(), 10);
+        });
+        it('emit TransferBatch event', async function () {
+          await expect(this.contract.connect(claimer1).claim(claimer1.address, this.elements[0].claimData, 10))
+            .to.emit(this.rewardContract, 'TransferBatch')
+            .withArgs(
+              await this.contract.getAddress(),
+              ethers.ZeroAddress,
+              this.elements[0].claimer,
+              this.elements[0].tokenIds,
+              this.elements[0].amounts
+            );
+        });
+        it('mints the reward', async function () {
+          await this.contract.connect(claimer1).claim(claimer1.address, this.elements[0].claimData, 10);
 
           await expect(this.rewardContract.balanceOf(this.elements[0].claimer, this.elements[0].tokenIds[0])).to.eventually.equal(
             this.elements[0].amounts[0]

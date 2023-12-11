@@ -20,7 +20,7 @@ contract ChaosKingdomResourcesClaim is ContractOwnership, ERC20Receiver, Forward
     mapping(bytes32 => bool) public claimed;
 
     IERC1155Mintable public immutable REWARD_CONTRACT;
-    IERC20 public feeContract;
+    IERC20 public immutable FEE_CONTRACT;
     bytes4 private constant MAGIC_VALUE = 0x4fc35859; // bytes4(keccak256("onERC20Received(address,address,uint256,bytes)"))
 
     event MerkleRootAdded(bytes32 root);
@@ -28,8 +28,6 @@ contract ChaosKingdomResourcesClaim is ContractOwnership, ERC20Receiver, Forward
     event MerkleRootDeprecated(bytes32 root);
 
     event PayoutClaimed(bytes32 indexed root, bytes32 epochId, uint256 fee, address indexed recipient, uint256[] ids, uint256[] values);
-
-    event FeeContractSet(address newContract);
 
     error MerkleRootAlreadyExists(bytes32 merkleRoot);
 
@@ -41,15 +39,13 @@ contract ChaosKingdomResourcesClaim is ContractOwnership, ERC20Receiver, Forward
 
     error FeeContractMismatch(address sender, address expectedContract);
 
-    error InvalidFeeContractAddress(address newContract);
-
     constructor(
-        IERC20 feeContract_,
-        IERC1155Mintable rewardContract_,
+        IERC20 feeContract,
+        IERC1155Mintable rewardContract,
         IForwarderRegistry forwarderRegistry
     ) ContractOwnership(msg.sender) ForwarderRegistryContext(forwarderRegistry) {
-        feeContract = feeContract_;
-        REWARD_CONTRACT = rewardContract_;
+        FEE_CONTRACT = feeContract;
+        REWARD_CONTRACT = rewardContract;
     }
 
     /// @inheritdoc ForwarderRegistryContextBase
@@ -62,37 +58,47 @@ contract ChaosKingdomResourcesClaim is ContractOwnership, ERC20Receiver, Forward
         return ForwarderRegistryContextBase._msgData();
     }
 
+    // TODO: separate info claim function
     function onERC20Received(address operator, address from, uint256 value, bytes calldata data) external override returns (bytes4 magicValue) {
-        if (address(feeContract) != msg.sender) revert FeeContractMismatch(msg.sender, address(feeContract));
+        if (address(FEE_CONTRACT) != msg.sender) revert FeeContractMismatch(msg.sender, address(FEE_CONTRACT));
 
         uint256 fee = value;
 
-        (bytes32 merkleRoot, bytes32 epochId, bytes32[] memory proof, uint256[] memory ids, uint256[] memory values) = abi.decode(
-            data,
-            (bytes32, bytes32, bytes32[], uint256[], uint256[])
-        );
-        if (!roots[merkleRoot]) revert MerkleRootDoesNotExist(merkleRoot);
-
-        bytes32 leaf = keccak256(abi.encodePacked(from, ids, values, fee, epochId));
-
-        if (claimed[leaf]) revert AlreadyClaimed(from, ids, values, fee, epochId);
-        if (!proof.verify(merkleRoot, leaf)) revert InvalidProof(from, ids, values, fee, epochId);
-
-        claimed[leaf] = true;
-
-        emit PayoutClaimed(merkleRoot, epochId, fee, from, ids, values);
+        (uint256[] memory ids, uint256[] memory values) = _processClaimData(from, data, fee);
 
         REWARD_CONTRACT.safeBatchMint(from, ids, values, "");
 
         return MAGIC_VALUE;
     }
 
-    function setFeeContract(address newContract) public {
-        ContractOwnershipStorage.layout().enforceIsContractOwner(_msgSender());
-        if (newContract == address(0)) revert InvalidFeeContractAddress(newContract);
+    function _processClaimData(
+        address recipient,
+        bytes calldata claimData,
+        uint256 fee
+    ) internal returns (uint256[] memory ids, uint256[] memory values) {
+        (bytes32 merkleRoot, bytes32 epochId, bytes32[] memory proof, uint256[] memory _ids, uint256[] memory _values) = abi.decode(
+            claimData,
+            (bytes32, bytes32, bytes32[], uint256[], uint256[])
+        );
+        if (!roots[merkleRoot]) revert MerkleRootDoesNotExist(merkleRoot);
 
-        feeContract = IERC20(newContract);
-        emit FeeContractSet(newContract);
+        bytes32 leaf = keccak256(abi.encodePacked(recipient, _ids, _values, fee, epochId));
+
+        if (claimed[leaf]) revert AlreadyClaimed(recipient, _ids, _values, fee, epochId);
+        if (!proof.verify(merkleRoot, leaf)) revert InvalidProof(recipient, _ids, _values, fee, epochId);
+
+        claimed[leaf] = true;
+
+        emit PayoutClaimed(merkleRoot, epochId, fee, recipient, _ids, _values);
+
+        return (_ids, _values);
+    }
+
+    function claim(address recipient, bytes calldata claimData, uint256 fee) external {
+        (uint256[] memory ids, uint256[] memory values) = _processClaimData(recipient, claimData, fee);
+
+        FEE_CONTRACT.transferFrom(recipient, address(this), fee);
+        REWARD_CONTRACT.safeBatchMint(recipient, ids, values, "");
     }
 
     function addMerkleRoot(bytes32 merkleRoot) public {
