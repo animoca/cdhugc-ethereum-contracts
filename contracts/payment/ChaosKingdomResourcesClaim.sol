@@ -23,7 +23,7 @@ contract ChaosKingdomResourcesClaim is ContractOwnership, ERC20Receiver, Forward
     IERC20 public immutable FEE_CONTRACT;
     bytes4 private constant MAGIC_VALUE = 0x4fc35859; // bytes4(keccak256("onERC20Received(address,address,uint256,bytes)"))
 
-    event MerkleRootAdded(bytes32 root);
+    event MerkleRootAdded(bytes32 indexed root);
 
     event MerkleRootDeprecated(bytes32 root);
 
@@ -58,7 +58,6 @@ contract ChaosKingdomResourcesClaim is ContractOwnership, ERC20Receiver, Forward
         return ForwarderRegistryContextBase._msgData();
     }
 
-    // TODO: separate info claim function
     function onERC20Received(address operator, address from, uint256 value, bytes calldata data) external override returns (bytes4 magicValue) {
         if (address(FEE_CONTRACT) != msg.sender) revert FeeContractMismatch(msg.sender, address(FEE_CONTRACT));
 
