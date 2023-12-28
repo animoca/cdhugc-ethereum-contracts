@@ -8,12 +8,10 @@ import {ChaosKingdomResources} from "../ERC1155/ChaosKingdomResources.sol";
 
 contract ChaosKingdomResourcesMock is ChaosKingdomResources {
     constructor(
-        string memory tokenName,
-        string memory tokenSymbol,
         ITokenMetadataResolver metadataResolver,
         IOperatorFilterRegistry filterRegistry,
         IForwarderRegistry forwarderRegistry
-    ) ChaosKingdomResources(tokenName, tokenSymbol, metadataResolver, filterRegistry, forwarderRegistry) {}
+    ) ChaosKingdomResources(metadataResolver, filterRegistry, forwarderRegistry) {}
 
     function __msgData() external view returns (bytes calldata) {
         return _msgData();

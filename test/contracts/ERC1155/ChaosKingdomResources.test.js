@@ -6,28 +6,21 @@ const {
 } = require('@animoca/ethereum-contracts/test/helpers/registries');
 const {behavesLikeERC1155} = require('@animoca/ethereum-contracts/test/behaviors');
 
-const name = 'ERC1155';
-const symbol = 'ERC1155';
-
 const config = {
   immutable: {
     name: 'ChaosKingdomResourcesMock',
-    ctorArguments: ['name', 'symbol', 'metadataResolver', 'filterRegistry', 'forwarderRegistry'],
+    ctorArguments: ['metadataResolver', 'filterRegistry', 'forwarderRegistry'],
     testMsgData: true,
   },
   defaultArguments: {
     forwarderRegistry: getForwarderRegistryAddress,
     metadataResolver: getTokenMetadataResolverWithBaseURIAddress,
     filterRegistry: getOperatorFilterRegistryAddress,
-    name,
-    symbol,
   },
 };
 
 runBehaviorTests('ChaosKingdomResources', config, function (deployFn) {
   const implementation = {
-    name,
-    symbol,
     errors: {
       // ERC1155
       SelfApprovalForAll: {custom: true, error: 'ERC1155SelfApprovalForAll', args: ['account']},
@@ -82,7 +75,7 @@ runBehaviorTests('ChaosKingdomResources', config, function (deployFn) {
       },
     },
     deploy: async function (deployer, args = {}) {
-      const contract = await deployFn({name, symbol, ...args});
+      const contract = await deployFn({...args});
       await contract.grantRole(await contract.MINTER_ROLE(), deployer.address);
       return contract;
     },

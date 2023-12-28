@@ -8,10 +8,8 @@ import {ERC1155FullBurn} from "@animoca/ethereum-contracts/contracts/token/ERC11
 
 contract ChaosKingdomResources is ERC1155FullBurn {
     constructor(
-        string memory tokenName,
-        string memory tokenSymbol,
         ITokenMetadataResolver metadataResolver,
         IOperatorFilterRegistry filterRegistry,
         IForwarderRegistry forwarderRegistry
-    ) ERC1155FullBurn(tokenName, tokenSymbol, metadataResolver, filterRegistry, forwarderRegistry) {}
+    ) ERC1155FullBurn("Chaos Kingdom Resources", "RESOURCE", metadataResolver, filterRegistry, forwarderRegistry) {}
 }

@@ -34,14 +34,7 @@ runBehaviorTests('ChaosKingdomResourcesClaim', config, function (deployFn) {
       const metadataResolverAddress = await getTokenMetadataResolverWithBaseURIAddress();
       const forwarderRegistryAddress = await getForwarderRegistryAddress();
       const filterRegistryAddress = await getOperatorFilterRegistryAddress();
-      this.rewardContract = await deployContract(
-        'ChaosKingdomResources',
-        '',
-        '',
-        metadataResolverAddress,
-        filterRegistryAddress,
-        forwarderRegistryAddress
-      );
+      this.rewardContract = await deployContract('ChaosKingdomResources', metadataResolverAddress, filterRegistryAddress, forwarderRegistryAddress);
       this.feeContract = await deployContract('ERC20MintBurn', '', '', 18, forwarderRegistryAddress);
       const rewardsContractAddress = await this.rewardContract.getAddress();
       const feeContractAddress = await this.feeContract.getAddress();
@@ -92,7 +85,7 @@ runBehaviorTests('ChaosKingdomResourcesClaim', config, function (deployFn) {
       });
       it('reverts if merkle root does not exist', async function () {
         const root = ethers.ZeroHash;
-        await expect(this.contract.deprecateMerkleRoot(root)).to.be.revertedWithCustomError(this.contract, 'MerkleRootDoesNotExist').withArgs(root);
+        await expect(this.contract.deprecateMerkleRoot(root)).to.be.revertedWithCustomError(this.contract, 'InvalidMerkleRoot').withArgs(root);
       });
       it('root is removed from roots', async function () {
         const root = ethers.ZeroHash;
@@ -168,7 +161,7 @@ runBehaviorTests('ChaosKingdomResourcesClaim', config, function (deployFn) {
             .to.revertedWithCustomError(this.contract, 'FeeContractMismatch')
             .withArgs(await anotherContract.getAddress(), await this.feeContract.getAddress());
         });
-        it('reverts with MerkleRootDoesNotExist if the merkle root does not exist', async function () {
+        it('reverts with InvalidMerkleRoot if the merkle root does not exist', async function () {
           const mockRoot = ethers.ZeroHash;
           const data = ethers.AbiCoder.defaultAbiCoder().encode(
             ['bytes32', 'uint256', 'bytes32[]', 'uint256[]', 'uint256[]'],
@@ -176,7 +169,7 @@ runBehaviorTests('ChaosKingdomResourcesClaim', config, function (deployFn) {
           );
 
           await expect(this.feeContract.connect(claimer1).safeTransfer(await this.contract.getAddress(), 10, data))
-            .to.revertedWithCustomError(this.contract, 'MerkleRootDoesNotExist')
+            .to.revertedWithCustomError(this.contract, 'InvalidMerkleRoot')
             .withArgs(ethers.ZeroHash);
         });
         it('reverts with AlreadyClaimed if the leaf is claimed twice', async function () {
@@ -280,7 +273,7 @@ runBehaviorTests('ChaosKingdomResourcesClaim', config, function (deployFn) {
             .to.revertedWithCustomError(this.feeContract, 'ERC20InsufficientAllowance')
             .withArgs(claimer1.address, await this.contract.getAddress(), 0, 10);
         });
-        it('reverts with MerkleRootDoesNotExist if the merkle root does not exist', async function () {
+        it('reverts with InvalidMerkleRoot if the merkle root does not exist', async function () {
           const mockRoot = ethers.ZeroHash;
           const data = ethers.AbiCoder.defaultAbiCoder().encode(
             ['bytes32', 'uint256', 'bytes32[]', 'uint256[]', 'uint256[]'],
@@ -288,7 +281,7 @@ runBehaviorTests('ChaosKingdomResourcesClaim', config, function (deployFn) {
           );
 
           await expect(this.contract.connect(claimer1).claim(claimer1.address, data, 10))
-            .to.revertedWithCustomError(this.contract, 'MerkleRootDoesNotExist')
+            .to.revertedWithCustomError(this.contract, 'InvalidMerkleRoot')
             .withArgs(ethers.ZeroHash);
         });
         it('reverts with AlreadyClaimed if the leaf is claimed twice', async function () {
