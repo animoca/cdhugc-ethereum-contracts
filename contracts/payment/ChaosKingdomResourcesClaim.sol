@@ -25,13 +25,13 @@ contract ChaosKingdomResourcesClaim is ContractOwnership, ERC20Receiver, Forward
 
     event MerkleRootAdded(bytes32 indexed root);
 
-    event MerkleRootDeprecated(bytes32 root);
+    event MerkleRootDeprecated(bytes32 indexed root);
 
-    event PayoutClaimed(bytes32 indexed root, bytes32 epochId, uint256 fee, address indexed recipient, uint256[] ids, uint256[] values);
+    event PayoutClaimed(bytes32 indexed root, bytes32 indexed epochId, uint256 fee, address indexed recipient, uint256[] ids, uint256[] values);
 
     error MerkleRootAlreadyExists(bytes32 merkleRoot);
 
-    error MerkleRootDoesNotExist(bytes32 merkleRoot);
+    error InvalidMerkleRoot(bytes32 merkleRoot);
 
     error AlreadyClaimed(address recipient, uint256[] ids, uint256[] values, uint256 fee, bytes32 epochId);
 
@@ -79,7 +79,7 @@ contract ChaosKingdomResourcesClaim is ContractOwnership, ERC20Receiver, Forward
             claimData,
             (bytes32, bytes32, bytes32[], uint256[], uint256[])
         );
-        if (!roots[merkleRoot]) revert MerkleRootDoesNotExist(merkleRoot);
+        if (!roots[merkleRoot]) revert InvalidMerkleRoot(merkleRoot);
 
         bytes32 leaf = keccak256(abi.encodePacked(recipient, _ids, _values, fee, epochId));
 
@@ -110,7 +110,7 @@ contract ChaosKingdomResourcesClaim is ContractOwnership, ERC20Receiver, Forward
 
     function deprecateMerkleRoot(bytes32 merkleRoot) public {
         ContractOwnershipStorage.layout().enforceIsContractOwner(_msgSender());
-        if (!roots[merkleRoot]) revert MerkleRootDoesNotExist(merkleRoot);
+        if (!roots[merkleRoot]) revert InvalidMerkleRoot(merkleRoot);
 
         roots[merkleRoot] = false;
         emit MerkleRootDeprecated(merkleRoot);
