@@ -5,6 +5,7 @@ import {MerkleProof} from "@openzeppelin/contracts/utils/cryptography/MerkleProo
 import {ContractOwnershipStorage} from "@animoca/ethereum-contracts/contracts/access/libraries/ContractOwnershipStorage.sol";
 import {ContractOwnership} from "@animoca/ethereum-contracts/contracts/access/ContractOwnership.sol";
 import {IERC20} from "@animoca/ethereum-contracts/contracts/token/ERC20/interfaces/IERC20.sol";
+import {IERC20Receiver} from "@animoca/ethereum-contracts/contracts/token/ERC20/interfaces/IERC20Receiver.sol";
 import {ERC20Receiver} from "@animoca/ethereum-contracts/contracts/token/ERC20/ERC20Receiver.sol";
 import {IERC1155Mintable} from "@animoca/ethereum-contracts/contracts/token/ERC1155/interfaces/IERC1155Mintable.sol";
 import {ForwarderRegistryContext} from "@animoca/ethereum-contracts/contracts/metatx/ForwarderRegistryContext.sol";
@@ -21,7 +22,6 @@ contract ChaosKingdomResourcesClaim is ContractOwnership, ERC20Receiver, Forward
 
     IERC1155Mintable public immutable REWARD_CONTRACT;
     IERC20 public immutable FEE_CONTRACT;
-    bytes4 private constant MAGIC_VALUE = 0x4fc35859; // bytes4(keccak256("onERC20Received(address,address,uint256,bytes)"))
 
     event MerkleRootAdded(bytes32 indexed root);
 
@@ -67,7 +67,7 @@ contract ChaosKingdomResourcesClaim is ContractOwnership, ERC20Receiver, Forward
 
         REWARD_CONTRACT.safeBatchMint(from, ids, values, "");
 
-        return MAGIC_VALUE;
+        return IERC20Receiver.onERC20Received.selector;
     }
 
     function _processClaimData(
