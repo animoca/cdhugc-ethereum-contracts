@@ -4,7 +4,7 @@ pragma solidity 0.8.22;
 import {MerkleProof} from "@openzeppelin/contracts/utils/cryptography/MerkleProof.sol";
 import {ContractOwnershipStorage} from "@animoca/ethereum-contracts/contracts/access/libraries/ContractOwnershipStorage.sol";
 import {ContractOwnership} from "@animoca/ethereum-contracts/contracts/access/ContractOwnership.sol";
-import {IERC20} from "@animoca/ethereum-contracts/contracts/token/ERC20/interfaces/IERC20.sol";
+import {IERC20SafeTransfers} from "@animoca/ethereum-contracts/contracts/token/ERC20/interfaces/IERC20SafeTransfers.sol";
 import {IERC20Receiver} from "@animoca/ethereum-contracts/contracts/token/ERC20/interfaces/IERC20Receiver.sol";
 import {ERC20Receiver} from "@animoca/ethereum-contracts/contracts/token/ERC20/ERC20Receiver.sol";
 import {IERC1155Mintable} from "@animoca/ethereum-contracts/contracts/token/ERC1155/interfaces/IERC1155Mintable.sol";
@@ -21,7 +21,7 @@ contract ChaosKingdomResourcesClaim is ContractOwnership, ERC20Receiver, Forward
     mapping(bytes32 => bool) public claimed;
 
     IERC1155Mintable public immutable REWARD_CONTRACT;
-    IERC20 public immutable FEE_CONTRACT;
+    IERC20SafeTransfers public immutable FEE_CONTRACT;
 
     event MerkleRootAdded(bytes32 indexed root);
 
@@ -40,7 +40,7 @@ contract ChaosKingdomResourcesClaim is ContractOwnership, ERC20Receiver, Forward
     error FeeContractMismatch(address receivedContract, address expectedContract);
 
     constructor(
-        IERC20 feeContract,
+        IERC20SafeTransfers feeContract,
         IERC1155Mintable rewardContract,
         IForwarderRegistry forwarderRegistry
     ) ContractOwnership(msg.sender) ForwarderRegistryContext(forwarderRegistry) {
@@ -66,44 +66,31 @@ contract ChaosKingdomResourcesClaim is ContractOwnership, ERC20Receiver, Forward
             (bytes32, bytes32, bytes32[], uint256[], uint256[])
         );
 
-        _claim(from, merkleRoot, epochId, proof, _ids, _values, value);
-
-        return IERC20Receiver.onERC20Received.selector;
-    }
-
-    function _claim(
-        address recipient,
-        bytes32 merkleRoot,
-        bytes32 epochId,
-        bytes32[] memory proof,
-        uint256[] memory _ids,
-        uint256[] memory _values,
-        uint256 fee
-    ) internal {
         if (!roots[merkleRoot]) revert InvalidMerkleRoot(merkleRoot);
 
-        bytes32 leaf = keccak256(abi.encodePacked(recipient, _ids, _values, fee, epochId));
+        bytes32 leaf = keccak256(abi.encodePacked(from, _ids, _values, value, epochId));
 
-        if (claimed[leaf]) revert AlreadyClaimed(recipient, _ids, _values, fee, epochId);
-        if (!proof.verify(merkleRoot, leaf)) revert InvalidProof(recipient, _ids, _values, fee, epochId);
+        if (claimed[leaf]) revert AlreadyClaimed(from, _ids, _values, value, epochId);
+        if (!proof.verify(merkleRoot, leaf)) revert InvalidProof(from, _ids, _values, value, epochId);
 
-        REWARD_CONTRACT.safeBatchMint(recipient, _ids, _values, "");
+        REWARD_CONTRACT.safeBatchMint(from, _ids, _values, "");
         claimed[leaf] = true;
-        emit PayoutClaimed(merkleRoot, epochId, fee, recipient, _ids, _values);
+        emit PayoutClaimed(merkleRoot, epochId, value, from, _ids, _values);
+
+        return IERC20Receiver.onERC20Received.selector;
     }
 
     function claim(
         address recipient,
         bytes32 merkleRoot,
         bytes32 epochId,
-        bytes32[] memory proof,
-        uint256[] memory _ids,
-        uint256[] memory _values,
+        bytes32[] calldata proof,
+        uint256[] calldata ids,
+        uint256[] calldata values,
         uint256 fee
     ) external {
-        FEE_CONTRACT.transferFrom(recipient, address(this), fee);
-
-        _claim(recipient, merkleRoot, epochId, proof, _ids, _values, fee);
+        bytes memory data = abi.encode(merkleRoot, epochId, proof, ids, values);
+        FEE_CONTRACT.safeTransferFrom(recipient, address(this), fee, data);
     }
 
     function addMerkleRoot(bytes32 merkleRoot) public {
