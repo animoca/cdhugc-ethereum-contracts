@@ -135,7 +135,7 @@ runBehaviorTests('ChaosKingdomResourcesClaim', config, function (deployFn) {
           ];
           this.leaves = this.elements.map((el) =>
             ethers.solidityPacked(
-              ['address', 'uint256[]', 'uint256[]', 'uint256', 'uint256'],
+              ['address', 'uint256[]', 'uint256[]', 'uint256', 'bytes32'],
               [el.claimer, el.tokenIds, el.amounts, el.costs, this.epochId]
             )
           );
@@ -148,7 +148,7 @@ runBehaviorTests('ChaosKingdomResourcesClaim', config, function (deployFn) {
 
           this.elements[0].proof = this.tree.getHexProof(keccak256(this.leaves[0]));
           this.elements[0].data = ethers.AbiCoder.defaultAbiCoder().encode(
-            ['bytes32', 'uint256', 'bytes32[]', 'uint256[]', 'uint256[]'],
+            ['bytes32', 'bytes32', 'bytes32[]', 'uint256[]', 'uint256[]'],
             [this.root, this.epochId, this.elements[0].proof, this.elements[0].tokenIds, this.elements[0].amounts]
           );
         });
@@ -164,7 +164,7 @@ runBehaviorTests('ChaosKingdomResourcesClaim', config, function (deployFn) {
         it('reverts with InvalidMerkleRoot if the merkle root does not exist', async function () {
           const mockRoot = ethers.ZeroHash;
           const data = ethers.AbiCoder.defaultAbiCoder().encode(
-            ['bytes32', 'uint256', 'bytes32[]', 'uint256[]', 'uint256[]'],
+            ['bytes32', 'bytes32', 'bytes32[]', 'uint256[]', 'uint256[]'],
             [mockRoot, this.epochId, this.elements[0].proof, this.elements[0].tokenIds, this.elements[0].amounts]
           );
 
@@ -182,7 +182,7 @@ runBehaviorTests('ChaosKingdomResourcesClaim', config, function (deployFn) {
         it('reverts with InvalidProof if the proof can not be verified', async function () {
           const leafOneProof = this.tree.getHexProof(keccak256(this.leaves[1]));
           const data = ethers.AbiCoder.defaultAbiCoder().encode(
-            ['bytes32', 'uint256', 'bytes32[]', 'uint256[]', 'uint256[]'],
+            ['bytes32', 'bytes32', 'bytes32[]', 'uint256[]', 'uint256[]'],
             [this.root, this.epochId, leafOneProof, this.elements[0].tokenIds, this.elements[0].amounts]
           );
 
@@ -215,7 +215,7 @@ runBehaviorTests('ChaosKingdomResourcesClaim', config, function (deployFn) {
         });
       });
     });
-    context('claim(address,bytes,uint256)', function () {
+    context('claim(address,bytes32,bytes32,bytes32,uint256[],uint256[],uint256)', function () {
       context('with a merkle root set', function () {
         beforeEach(async function () {
           this.epochId = ethers.zeroPadValue('0x9a794a09cf7b4fb99e2e3d4aeac42eab', 32);
@@ -248,7 +248,7 @@ runBehaviorTests('ChaosKingdomResourcesClaim', config, function (deployFn) {
           ];
           this.leaves = this.elements.map((el) =>
             ethers.solidityPacked(
-              ['address', 'uint256[]', 'uint256[]', 'uint256', 'uint256'],
+              ['address', 'uint256[]', 'uint256[]', 'uint256', 'bytes32'],
               [el.claimer, el.tokenIds, el.amounts, el.costs, this.epochId]
             )
           );
@@ -261,59 +261,89 @@ runBehaviorTests('ChaosKingdomResourcesClaim', config, function (deployFn) {
           await this.feeContract.connect(claimer1).approve(await this.contract.getAddress(), 100);
 
           this.elements[0].proof = this.tree.getHexProof(keccak256(this.leaves[0]));
-          this.elements[0].claimData = ethers.AbiCoder.defaultAbiCoder().encode(
-            ['bytes32', 'uint256', 'bytes32[]', 'uint256[]', 'uint256[]'],
-            [this.root, this.epochId, this.elements[0].proof, this.elements[0].tokenIds, this.elements[0].amounts]
-          );
+          // this.elements[0].claimData = ethers.AbiCoder.defaultAbiCoder().encode(
+          //   ['bytes32', 'bytes32', 'bytes32[]', 'uint256[]', 'uint256[]'],
+          //   [this.root, this.epochId, this.elements[0].proof, this.elements[0].tokenIds, this.elements[0].amounts]
+          // );
         });
         it('reverts with ERC20InsufficientAllowance if sender did not do approve on contract', async function () {
           await this.feeContract.connect(claimer1).approve(await this.contract.getAddress(), 0);
 
-          await expect(this.contract.connect(claimer1).claim(claimer1.address, this.elements[0].claimData, 10))
+          await expect(
+            this.contract
+              .connect(claimer1)
+              .claim(claimer1.address, this.root, this.epochId, this.elements[0].proof, this.elements[0].tokenIds, this.elements[0].amounts, 10)
+          )
             .to.revertedWithCustomError(this.feeContract, 'ERC20InsufficientAllowance')
             .withArgs(claimer1.address, await this.contract.getAddress(), 0, 10);
         });
         it('reverts with InvalidMerkleRoot if the merkle root does not exist', async function () {
           const mockRoot = ethers.ZeroHash;
-          const data = ethers.AbiCoder.defaultAbiCoder().encode(
-            ['bytes32', 'uint256', 'bytes32[]', 'uint256[]', 'uint256[]'],
-            [mockRoot, this.epochId, this.elements[0].proof, this.elements[0].tokenIds, this.elements[0].amounts]
-          );
+          // const data = ethers.AbiCoder.defaultAbiCoder().encode(
+          //   ['bytes32', 'uint256', 'bytes32[]', 'uint256[]', 'uint256[]'],
+          //   [mockRoot, this.epochId, this.elements[0].proof, this.elements[0].tokenIds, this.elements[0].amounts]
+          // );
 
-          await expect(this.contract.connect(claimer1).claim(claimer1.address, data, 10))
+          await expect(
+            this.contract
+              .connect(claimer1)
+              .claim(claimer1.address, mockRoot, this.epochId, this.elements[0].proof, this.elements[0].tokenIds, this.elements[0].amounts, 10)
+          )
             .to.revertedWithCustomError(this.contract, 'InvalidMerkleRoot')
             .withArgs(ethers.ZeroHash);
         });
         it('reverts with AlreadyClaimed if the leaf is claimed twice', async function () {
-          await this.contract.connect(claimer1).claim(claimer1.address, this.elements[0].claimData, 10);
+          await this.contract
+            .connect(claimer1)
+            .claim(claimer1.address, this.root, this.epochId, this.elements[0].proof, this.elements[0].tokenIds, this.elements[0].amounts, 10);
 
-          await expect(this.contract.connect(claimer1).claim(claimer1.address, this.elements[0].claimData, 10))
+          await expect(
+            this.contract
+              .connect(claimer1)
+              .claim(claimer1.address, this.root, this.epochId, this.elements[0].proof, this.elements[0].tokenIds, this.elements[0].amounts, 10)
+          )
             .to.revertedWithCustomError(this.contract, 'AlreadyClaimed')
             .withArgs(this.elements[0].claimer, this.elements[0].tokenIds, this.elements[0].amounts, this.elements[0].costs, this.epochId);
         });
         it('reverts with InvalidProof if the proof can not be verified', async function () {
           const proof = this.tree.getHexProof(keccak256(this.leaves[1]));
-          const data = ethers.AbiCoder.defaultAbiCoder().encode(
-            ['bytes32', 'uint256', 'bytes32[]', 'uint256[]', 'uint256[]'],
-            [this.root, this.epochId, proof, this.elements[0].tokenIds, this.elements[0].amounts]
-          );
+          // const data = ethers.AbiCoder.defaultAbiCoder().encode(
+          //   ['bytes32', 'bytes32', 'bytes32[]', 'uint256[]', 'uint256[]'],
+          //   [this.root, this.epochId, proof, this.elements[0].tokenIds, this.elements[0].amounts]
+          // );
 
-          await expect(this.contract.connect(claimer1).claim(claimer1.address, data, 10))
+          await expect(
+            this.contract
+              .connect(claimer1)
+              .claim(claimer1.address, this.root, this.epochId, proof, this.elements[0].tokenIds, this.elements[0].amounts, 10)
+          )
             .to.revertedWithCustomError(this.contract, 'InvalidProof')
             .withArgs(this.elements[0].claimer, this.elements[0].tokenIds, this.elements[0].amounts, this.elements[0].costs, this.epochId);
         });
         it('emits a PayoutClaimed event', async function () {
-          await expect(this.contract.connect(claimer1).claim(claimer1.address, this.elements[0].claimData, 10))
+          await expect(
+            this.contract
+              .connect(claimer1)
+              .claim(claimer1.address, this.root, this.epochId, this.elements[0].proof, this.elements[0].tokenIds, this.elements[0].amounts, 10)
+          )
             .to.emit(this.contract, 'PayoutClaimed')
             .withArgs(this.root, this.epochId, this.elements[0].costs, this.elements[0].claimer, this.elements[0].tokenIds, this.elements[0].amounts);
         });
         it('emit Transfer event', async function () {
-          await expect(this.contract.connect(claimer1).claim(claimer1.address, this.elements[0].claimData, 10))
+          await expect(
+            this.contract
+              .connect(claimer1)
+              .claim(claimer1.address, this.root, this.epochId, this.elements[0].proof, this.elements[0].tokenIds, this.elements[0].amounts, 10)
+          )
             .to.emit(this.feeContract, 'Transfer')
             .withArgs(this.elements[0].claimer, await this.contract.getAddress(), 10);
         });
         it('emit TransferBatch event', async function () {
-          await expect(this.contract.connect(claimer1).claim(claimer1.address, this.elements[0].claimData, 10))
+          await expect(
+            this.contract
+              .connect(claimer1)
+              .claim(claimer1.address, this.root, this.epochId, this.elements[0].proof, this.elements[0].tokenIds, this.elements[0].amounts, 10)
+          )
             .to.emit(this.rewardContract, 'TransferBatch')
             .withArgs(
               await this.contract.getAddress(),
@@ -324,7 +354,9 @@ runBehaviorTests('ChaosKingdomResourcesClaim', config, function (deployFn) {
             );
         });
         it('mints the reward', async function () {
-          await this.contract.connect(claimer1).claim(claimer1.address, this.elements[0].claimData, 10);
+          await this.contract
+            .connect(claimer1)
+            .claim(claimer1.address, this.root, this.epochId, this.elements[0].proof, this.elements[0].tokenIds, this.elements[0].amounts, 10);
 
           await expect(this.rewardContract.balanceOf(this.elements[0].claimer, this.elements[0].tokenIds[0])).to.eventually.equal(
             this.elements[0].amounts[0]
