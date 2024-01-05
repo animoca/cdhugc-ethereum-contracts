@@ -261,10 +261,6 @@ runBehaviorTests('ChaosKingdomResourcesClaim', config, function (deployFn) {
           await this.feeContract.connect(claimer1).approve(await this.contract.getAddress(), 100);
 
           this.elements[0].proof = this.tree.getHexProof(keccak256(this.leaves[0]));
-          // this.elements[0].claimData = ethers.AbiCoder.defaultAbiCoder().encode(
-          //   ['bytes32', 'bytes32', 'bytes32[]', 'uint256[]', 'uint256[]'],
-          //   [this.root, this.epochId, this.elements[0].proof, this.elements[0].tokenIds, this.elements[0].amounts]
-          // );
         });
         it('reverts with ERC20InsufficientAllowance if sender did not do approve on contract', async function () {
           await this.feeContract.connect(claimer1).approve(await this.contract.getAddress(), 0);
@@ -279,10 +275,6 @@ runBehaviorTests('ChaosKingdomResourcesClaim', config, function (deployFn) {
         });
         it('reverts with InvalidMerkleRoot if the merkle root does not exist', async function () {
           const mockRoot = ethers.ZeroHash;
-          // const data = ethers.AbiCoder.defaultAbiCoder().encode(
-          //   ['bytes32', 'uint256', 'bytes32[]', 'uint256[]', 'uint256[]'],
-          //   [mockRoot, this.epochId, this.elements[0].proof, this.elements[0].tokenIds, this.elements[0].amounts]
-          // );
 
           await expect(
             this.contract
@@ -307,10 +299,6 @@ runBehaviorTests('ChaosKingdomResourcesClaim', config, function (deployFn) {
         });
         it('reverts with InvalidProof if the proof can not be verified', async function () {
           const proof = this.tree.getHexProof(keccak256(this.leaves[1]));
-          // const data = ethers.AbiCoder.defaultAbiCoder().encode(
-          //   ['bytes32', 'bytes32', 'bytes32[]', 'uint256[]', 'uint256[]'],
-          //   [this.root, this.epochId, proof, this.elements[0].tokenIds, this.elements[0].amounts]
-          // );
 
           await expect(
             this.contract
