@@ -37,7 +37,7 @@ contract ChaosKingdomResourcesClaim is ContractOwnership, ERC20Receiver, Forward
 
     error InvalidProof(address recipient, uint256[] ids, uint256[] values, uint256 fee, bytes32 epochId);
 
-    error FeeContractMismatch(address sender, address expectedContract);
+    error FeeContractMismatch(address receivedContract, address expectedContract);
 
     constructor(
         IERC20 feeContract,
