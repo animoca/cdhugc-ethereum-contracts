@@ -11,5 +11,5 @@ contract ChaosKingdomResources is ERC1155FullBurn {
         ITokenMetadataResolver metadataResolver,
         IOperatorFilterRegistry filterRegistry,
         IForwarderRegistry forwarderRegistry
-    ) ERC1155FullBurn("Chaos Kingdom Resources", "RESOURCES", metadataResolver, filterRegistry, forwarderRegistry) {}
+    ) ERC1155FullBurn("Chaos Kingdom: Resources", "CKR", metadataResolver, filterRegistry, forwarderRegistry) {}
 }
