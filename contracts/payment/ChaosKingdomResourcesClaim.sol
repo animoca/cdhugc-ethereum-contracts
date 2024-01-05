@@ -80,19 +80,6 @@ contract ChaosKingdomResourcesClaim is ContractOwnership, ERC20Receiver, Forward
         return IERC20Receiver.onERC20Received.selector;
     }
 
-    function claim(
-        address recipient,
-        bytes32 merkleRoot,
-        bytes32 epochId,
-        bytes32[] calldata proof,
-        uint256[] calldata ids,
-        uint256[] calldata values,
-        uint256 fee
-    ) external {
-        bytes memory data = abi.encode(merkleRoot, epochId, proof, ids, values);
-        FEE_CONTRACT.safeTransferFrom(recipient, address(this), fee, data);
-    }
-
     function addMerkleRoot(bytes32 merkleRoot) public {
         ContractOwnershipStorage.layout().enforceIsContractOwner(_msgSender());
         if (roots[merkleRoot]) revert MerkleRootAlreadyExists(merkleRoot);
