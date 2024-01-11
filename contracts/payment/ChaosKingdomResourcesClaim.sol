@@ -8,12 +8,9 @@ import {IERC20SafeTransfers} from "@animoca/ethereum-contracts/contracts/token/E
 import {IERC20Receiver} from "@animoca/ethereum-contracts/contracts/token/ERC20/interfaces/IERC20Receiver.sol";
 import {ERC20Receiver} from "@animoca/ethereum-contracts/contracts/token/ERC20/ERC20Receiver.sol";
 import {IERC1155Mintable} from "@animoca/ethereum-contracts/contracts/token/ERC1155/interfaces/IERC1155Mintable.sol";
-import {ForwarderRegistryContext} from "@animoca/ethereum-contracts/contracts/metatx/ForwarderRegistryContext.sol";
-import {ForwarderRegistryContextBase} from "@animoca/ethereum-contracts/contracts/metatx/base/ForwarderRegistryContextBase.sol";
 import {Context} from "@openzeppelin/contracts/utils/Context.sol";
-import {IForwarderRegistry} from "@animoca/ethereum-contracts/contracts/metatx/interfaces/IForwarderRegistry.sol";
 
-contract ChaosKingdomResourcesClaim is ContractOwnership, ERC20Receiver, ForwarderRegistryContext {
+contract ChaosKingdomResourcesClaim is ContractOwnership, ERC20Receiver {
     using MerkleProof for bytes32[];
     using ContractOwnershipStorage for ContractOwnershipStorage.Layout;
 
@@ -39,23 +36,9 @@ contract ChaosKingdomResourcesClaim is ContractOwnership, ERC20Receiver, Forward
 
     error FeeContractMismatch(address receivedContract, address expectedContract);
 
-    constructor(
-        IERC20SafeTransfers feeContract,
-        IERC1155Mintable rewardContract,
-        IForwarderRegistry forwarderRegistry
-    ) ContractOwnership(msg.sender) ForwarderRegistryContext(forwarderRegistry) {
+    constructor(IERC20SafeTransfers feeContract, IERC1155Mintable rewardContract) ContractOwnership(msg.sender) {
         FEE_CONTRACT = feeContract;
         REWARD_CONTRACT = rewardContract;
-    }
-
-    /// @inheritdoc ForwarderRegistryContextBase
-    function _msgSender() internal view virtual override(Context, ForwarderRegistryContextBase) returns (address) {
-        return ForwarderRegistryContextBase._msgSender();
-    }
-
-    /// @inheritdoc ForwarderRegistryContextBase
-    function _msgData() internal view virtual override(Context, ForwarderRegistryContextBase) returns (bytes calldata) {
-        return ForwarderRegistryContextBase._msgData();
     }
 
     function onERC20Received(address operator, address from, uint256 value, bytes calldata data) external override returns (bytes4 magicValue) {
