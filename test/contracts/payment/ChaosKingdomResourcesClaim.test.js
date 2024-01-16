@@ -139,13 +139,13 @@ describe('ChaosKingdomResourcesClaim', function () {
           [this.root, this.epochId, this.elements[0].proof, this.elements[0].tokenIds, this.elements[0].amounts]
         );
       });
-      it('reverts with FeeContractMismatch if token transferred is not from feeContract', async function () {
+      it('reverts with InvalidFeeContract if token transferred is not from feeContract', async function () {
         const anotherContract = await deployContract('ERC20MintBurn', '', '', 18, await getForwarderRegistryAddress());
         await anotherContract.grantRole(await anotherContract.MINTER_ROLE(), deployer.address);
         await anotherContract.mint(claimer1.address, 10);
 
         await expect(anotherContract.connect(claimer1).safeTransfer(await this.contract.getAddress(), 10, ethers.ZeroHash))
-          .to.revertedWithCustomError(this.contract, 'FeeContractMismatch')
+          .to.revertedWithCustomError(this.contract, 'InvalidFeeContract')
           .withArgs(await anotherContract.getAddress(), await this.feeContract.getAddress());
       });
       it('reverts with InvalidMerkleRoot if the merkle root does not exist', async function () {

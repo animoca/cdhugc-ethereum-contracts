@@ -34,7 +34,7 @@ contract ChaosKingdomResourcesClaim is ContractOwnership, ERC20Receiver {
 
     error InvalidProof(address recipient, uint256[] ids, uint256[] values, uint256 fee, bytes32 epochId);
 
-    error FeeContractMismatch(address receivedContract, address expectedContract);
+    error InvalidFeeContract(address receivedContract, address expectedContract);
 
     constructor(IERC20SafeTransfers feeContract, IERC1155Mintable rewardContract) ContractOwnership(msg.sender) {
         FEE_CONTRACT = feeContract;
@@ -42,7 +42,7 @@ contract ChaosKingdomResourcesClaim is ContractOwnership, ERC20Receiver {
     }
 
     function onERC20Received(address operator, address from, uint256 value, bytes calldata data) external override returns (bytes4 magicValue) {
-        if (address(FEE_CONTRACT) != msg.sender) revert FeeContractMismatch(msg.sender, address(FEE_CONTRACT));
+        if (address(FEE_CONTRACT) != msg.sender) revert InvalidFeeContract(msg.sender, address(FEE_CONTRACT));
 
         (bytes32 merkleRoot, bytes32 epochId, bytes32[] memory proof, uint256[] memory _ids, uint256[] memory _values) = abi.decode(
             data,
