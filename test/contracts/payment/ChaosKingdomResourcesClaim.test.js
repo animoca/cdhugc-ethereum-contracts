@@ -96,25 +96,25 @@ describe('ChaosKingdomResourcesClaim', function () {
 
         this.elements = [
           {
-            claimer: claimer1.address,
+            recipient: claimer1.address,
             tokenIds: [1],
             amounts: [1],
             costs: 10,
           },
           {
-            claimer: claimer2.address,
+            recipient: claimer2.address,
             tokenIds: [2],
             amounts: [2],
             costs: 20,
           },
           {
-            claimer: claimer3.address,
+            recipient: claimer3.address,
             tokenIds: [3],
             amounts: [3],
             costs: 30,
           },
           {
-            claimer: claimer4.address,
+            recipient: claimer4.address,
             tokenIds: [4],
             amounts: [4],
             costs: 40,
@@ -123,7 +123,7 @@ describe('ChaosKingdomResourcesClaim', function () {
         this.leaves = this.elements.map((el) =>
           ethers.solidityPacked(
             ['address', 'uint256[]', 'uint256[]', 'uint256', 'bytes32'],
-            [el.claimer, el.tokenIds, el.amounts, el.costs, this.epochId]
+            [el.recipient, el.tokenIds, el.amounts, el.costs, this.epochId]
           )
         );
         this.tree = new MerkleTree(this.leaves, keccak256, {hashLeaves: true, sortPairs: true});
@@ -133,11 +133,20 @@ describe('ChaosKingdomResourcesClaim', function () {
         this.feeContract.grantRole(await this.feeContract.MINTER_ROLE(), deployer.address);
         await this.feeContract.mint(claimer1.address, 10000);
 
-        this.elements[0].proof = this.tree.getHexProof(keccak256(this.leaves[0]));
-        this.elements[0].data = ethers.AbiCoder.defaultAbiCoder().encode(
-          ['bytes32', 'bytes32', 'bytes32[]', 'uint256[]', 'uint256[]'],
-          [this.root, this.epochId, this.elements[0].proof, this.elements[0].tokenIds, this.elements[0].amounts]
+        this.leaves.forEach((leaf, index) => (this.elements[index].proof = this.tree.getHexProof(keccak256(leaf))));
+        this.elements.forEach(
+          (el) =>
+            (el.data = ethers.AbiCoder.defaultAbiCoder().encode(
+              ['bytes32', 'bytes32', 'bytes32[]', 'address', 'uint256[]', 'uint256[]'],
+              [this.root, this.epochId, el.proof, el.recipient, el.tokenIds, el.amounts]
+            ))
         );
+
+        // this.elements[0].proof = this.tree.getHexProof(keccak256(this.leaves[0]));
+        // this.elements[0].data = ethers.AbiCoder.defaultAbiCoder().encode(
+        //   ['bytes32', 'bytes32', 'bytes32[]', 'uint256[]', 'uint256[]'],
+        //   [this.root, this.epochId, this.elements[0].proof, this.elements[0].claimer, this.elements[0].tokenIds, this.elements[0].amounts]
+        // );
       });
       it('reverts with InvalidFeeContract if token transferred is not from feeContract', async function () {
         const anotherContract = await deployContract('ERC20MintBurn', '', '', 18, await getForwarderRegistryAddress());
@@ -164,23 +173,23 @@ describe('ChaosKingdomResourcesClaim', function () {
 
         await expect(this.feeContract.connect(claimer1).safeTransfer(await this.contract.getAddress(), this.elements[0].costs, this.elements[0].data))
           .to.revertedWithCustomError(this.contract, 'AlreadyClaimed')
-          .withArgs(this.elements[0].claimer, this.elements[0].tokenIds, this.elements[0].amounts, this.elements[0].costs, this.epochId);
+          .withArgs(this.elements[0].recipient, this.elements[0].tokenIds, this.elements[0].amounts, this.elements[0].costs, this.epochId);
       });
       it('reverts with InvalidProof if the proof can not be verified', async function () {
-        const leafOneProof = this.tree.getHexProof(keccak256(this.leaves[1]));
+        // const leafOneProof = this.tree.getHexProof(keccak256(this.leaves[1]));
         const data = ethers.AbiCoder.defaultAbiCoder().encode(
-          ['bytes32', 'bytes32', 'bytes32[]', 'uint256[]', 'uint256[]'],
-          [this.root, this.epochId, leafOneProof, this.elements[0].tokenIds, this.elements[0].amounts]
+          ['bytes32', 'bytes32', 'bytes32[]', 'address', 'uint256[]', 'uint256[]'],
+          [this.root, this.epochId, this.elements[1].proof, this.elements[0].recipient, this.elements[0].tokenIds, this.elements[0].amounts]
         );
 
         await expect(this.feeContract.connect(claimer1).safeTransfer(await this.contract.getAddress(), this.elements[0].costs, data))
           .to.revertedWithCustomError(this.contract, 'InvalidProof')
-          .withArgs(this.elements[0].claimer, this.elements[0].tokenIds, this.elements[0].amounts, this.elements[0].costs, this.epochId);
+          .withArgs(this.elements[0].recipient, this.elements[0].tokenIds, this.elements[0].amounts, this.elements[0].costs, this.epochId);
       });
       it('emits a PayoutClaimed event', async function () {
         await expect(this.feeContract.connect(claimer1).safeTransfer(await this.contract.getAddress(), this.elements[0].costs, this.elements[0].data))
           .to.emit(this.contract, 'PayoutClaimed')
-          .withArgs(this.root, this.epochId, this.elements[0].costs, this.elements[0].claimer, this.elements[0].tokenIds, this.elements[0].amounts);
+          .withArgs(this.root, this.epochId, this.elements[0].costs, this.elements[0].recipient, this.elements[0].tokenIds, this.elements[0].amounts);
       });
       it('emit TransferBatch event', async function () {
         await expect(this.feeContract.connect(claimer1).safeTransfer(await this.contract.getAddress(), this.elements[0].costs, this.elements[0].data))
@@ -188,7 +197,7 @@ describe('ChaosKingdomResourcesClaim', function () {
           .withArgs(
             await this.contract.getAddress(),
             ethers.ZeroAddress,
-            this.elements[0].claimer,
+            this.elements[0].recipient,
             this.elements[0].tokenIds,
             this.elements[0].amounts
           );
@@ -196,7 +205,7 @@ describe('ChaosKingdomResourcesClaim', function () {
       it('mints the reward', async function () {
         await this.feeContract.connect(claimer1).safeTransfer(await this.contract.getAddress(), this.elements[0].costs, this.elements[0].data);
 
-        await expect(this.rewardContract.balanceOf(this.elements[0].claimer, this.elements[0].tokenIds[0])).to.eventually.equal(
+        await expect(this.rewardContract.balanceOf(this.elements[0].recipient, this.elements[0].tokenIds[0])).to.eventually.equal(
           this.elements[0].amounts[0]
         );
       });
@@ -207,35 +216,18 @@ describe('ChaosKingdomResourcesClaim', function () {
         await expect(this.feeContract.balanceOf(revenueReceiver)).to.eventually.equal(this.elements[0].costs);
       });
 
+      it('can claim for another wallet', async function () {
+        await this.feeContract.connect(claimer1).safeTransfer(await this.contract.getAddress(), this.elements[1].costs, this.elements[1].data);
+
+        await expect(this.rewardContract.balanceOf(this.elements[1].recipient, this.elements[1].tokenIds[0])).to.eventually.equal(
+          this.elements[1].amounts[0]
+        );
+      });
+
       it('emit Transfer event', async function () {
         await expect(this.feeContract.connect(claimer1).safeTransfer(await this.contract.getAddress(), this.elements[0].costs, this.elements[0].data))
           .to.emit(this.feeContract, 'Transfer')
           .withArgs(await this.contract.getAddress(), revenueReceiver.address, this.elements[0].costs);
-      });
-    });
-
-    context('setRevenueWallet(address)', function () {
-      it('reverts if not sent by the contract owner', async function () {
-        await expect(this.contract.connect(other).setRevenueWallet(claimer1.address))
-          .to.be.revertedWithCustomError(this.contract, 'NotContractOwner')
-          .withArgs(other.address);
-      });
-
-      it('reverts if address is zero', async function () {
-        await expect(this.contract.setRevenueWallet(ethers.ZeroAddress))
-          .to.be.revertedWithCustomError(this.contract, 'InvalidRevenueWallet')
-          .withArgs(ethers.ZeroAddress);
-      });
-
-      it('RevenueWallet is updated to the new address', async function () {
-        const newRevenueWallet = claimer1.address;
-        await this.contract.setRevenueWallet(newRevenueWallet);
-        expect(await this.contract.revenueWallet()).to.equal(newRevenueWallet);
-      });
-
-      it('emits a RevenueWalletUpdated event', async function () {
-        const newRevenueWallet = claimer1.address;
-        await expect(this.contract.setRevenueWallet(newRevenueWallet)).to.emit(this.contract, 'RevenueWalletUpdated').withArgs(newRevenueWallet);
       });
     });
   });

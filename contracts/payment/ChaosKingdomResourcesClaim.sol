@@ -10,10 +10,13 @@ import {ERC20Receiver} from "@animoca/ethereum-contracts/contracts/token/ERC20/E
 import {IERC1155Mintable} from "@animoca/ethereum-contracts/contracts/token/ERC1155/interfaces/IERC1155Mintable.sol";
 import {Context} from "@openzeppelin/contracts/utils/Context.sol";
 import {TokenRecovery} from "@animoca/ethereum-contracts/contracts/security/TokenRecovery.sol";
+import {PayoutWalletStorage} from "@animoca/ethereum-contracts/contracts/payment/libraries/PayoutWalletStorage.sol";
+import {PayoutWallet} from "@animoca/ethereum-contracts/contracts/payment/PayoutWallet.sol";
 
-contract ChaosKingdomResourcesClaim is ContractOwnership, ERC20Receiver, TokenRecovery {
+contract ChaosKingdomResourcesClaim is ContractOwnership, ERC20Receiver, TokenRecovery, PayoutWallet {
     using MerkleProof for bytes32[];
     using ContractOwnershipStorage for ContractOwnershipStorage.Layout;
+    using PayoutWalletStorage for PayoutWalletStorage.Layout;
 
     mapping(bytes32 => bool) public roots;
     mapping(bytes32 => bool) public claimed;
@@ -21,17 +24,11 @@ contract ChaosKingdomResourcesClaim is ContractOwnership, ERC20Receiver, TokenRe
     IERC1155Mintable public immutable REWARD_CONTRACT;
     IERC20SafeTransfers public immutable FEE_CONTRACT;
 
-    address public revenueWallet;
-
-    event RevenueWalletUpdated(address revenueWallet);
-
     event MerkleRootAdded(bytes32 indexed root);
 
     event MerkleRootDeprecated(bytes32 indexed root);
 
     event PayoutClaimed(bytes32 indexed root, bytes32 indexed epochId, uint256 fee, address indexed recipient, uint256[] ids, uint256[] values);
-
-    error InvalidRevenueWallet(address receivedContract);
 
     error MerkleRootAlreadyExists(bytes32 merkleRoot);
 
@@ -43,40 +40,33 @@ contract ChaosKingdomResourcesClaim is ContractOwnership, ERC20Receiver, TokenRe
 
     error InvalidFeeContract(address receivedContract, address expectedContract);
 
-    constructor(IERC20SafeTransfers feeContract, IERC1155Mintable rewardContract, address _revenueWallet) ContractOwnership(msg.sender) {
+    constructor(
+        IERC20SafeTransfers feeContract,
+        IERC1155Mintable rewardContract,
+        address payable payoutWallet
+    ) ContractOwnership(msg.sender) PayoutWallet(payoutWallet) {
         FEE_CONTRACT = feeContract;
         REWARD_CONTRACT = rewardContract;
-        revenueWallet = _revenueWallet;
     }
 
-    function setRevenueWallet(address newRevenueWallet) public {
-        ContractOwnershipStorage.layout().enforceIsContractOwner(_msgSender());
-        if (newRevenueWallet == address(0)) revert InvalidRevenueWallet(newRevenueWallet);
-
-        revenueWallet = newRevenueWallet;
-        emit RevenueWalletUpdated(newRevenueWallet);
-    }
-
-    function onERC20Received(address operator, address from, uint256 value, bytes calldata data) external override returns (bytes4 magicValue) {
+    function onERC20Received(address, address, uint256 value, bytes calldata data) external override returns (bytes4 magicValue) {
         if (address(FEE_CONTRACT) != msg.sender) revert InvalidFeeContract(msg.sender, address(FEE_CONTRACT));
 
-        (bytes32 merkleRoot, bytes32 epochId, bytes32[] memory proof, uint256[] memory _ids, uint256[] memory _values) = abi.decode(
-            data,
-            (bytes32, bytes32, bytes32[], uint256[], uint256[])
-        );
+        (bytes32 merkleRoot, bytes32 epochId, bytes32[] memory proof, address recipient, uint256[] memory _ids, uint256[] memory _values) = abi
+            .decode(data, (bytes32, bytes32, bytes32[], address, uint256[], uint256[]));
 
         if (!roots[merkleRoot]) revert InvalidMerkleRoot(merkleRoot);
 
-        bytes32 leaf = keccak256(abi.encodePacked(from, _ids, _values, value, epochId));
+        bytes32 leaf = keccak256(abi.encodePacked(recipient, _ids, _values, value, epochId));
 
-        if (claimed[leaf]) revert AlreadyClaimed(from, _ids, _values, value, epochId);
-        if (!proof.verify(merkleRoot, leaf)) revert InvalidProof(from, _ids, _values, value, epochId);
+        if (claimed[leaf]) revert AlreadyClaimed(recipient, _ids, _values, value, epochId);
+        if (!proof.verify(merkleRoot, leaf)) revert InvalidProof(recipient, _ids, _values, value, epochId);
 
-        REWARD_CONTRACT.safeBatchMint(from, _ids, _values, "");
+        address payable payoutWallet = PayoutWalletStorage.layout().payoutWallet();
+        FEE_CONTRACT.safeTransfer(payoutWallet, value, "");
+        REWARD_CONTRACT.safeBatchMint(recipient, _ids, _values, "");
         claimed[leaf] = true;
-        emit PayoutClaimed(merkleRoot, epochId, value, from, _ids, _values);
-
-        FEE_CONTRACT.safeTransfer(revenueWallet, value, "");
+        emit PayoutClaimed(merkleRoot, epochId, value, recipient, _ids, _values);
 
         return IERC20Receiver.onERC20Received.selector;
     }
