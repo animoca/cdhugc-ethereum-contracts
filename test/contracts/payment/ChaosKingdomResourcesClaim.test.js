@@ -20,7 +20,14 @@ describe('ChaosKingdomResourcesClaim', function () {
     const forwarderRegistryAddress = await getForwarderRegistryAddress();
     const filterRegistryAddress = await getOperatorFilterRegistryAddress();
 
-    this.rewardContract = await deployContract('ChaosKingdomResources', metadataResolverAddress, filterRegistryAddress, forwarderRegistryAddress);
+    this.rewardContract = await deployContract(
+      'ERC1155FullBurn',
+      'Chaos Kingdom: Resources',
+      'CKR',
+      metadataResolverAddress,
+      filterRegistryAddress,
+      forwarderRegistryAddress
+    );
     this.feeContract = await deployContract('ERC20MintBurn', '', '', 18, forwarderRegistryAddress);
 
     const rewardsContractAddress = await this.rewardContract.getAddress();
