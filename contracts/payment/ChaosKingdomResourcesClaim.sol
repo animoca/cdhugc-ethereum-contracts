@@ -52,21 +52,23 @@ contract ChaosKingdomResourcesClaim is ContractOwnership, ERC20Receiver, TokenRe
     function onERC20Received(address, address, uint256 value, bytes calldata data) external override returns (bytes4 magicValue) {
         if (address(FEE_CONTRACT) != msg.sender) revert InvalidFeeContract(msg.sender, address(FEE_CONTRACT));
 
-        (bytes32 merkleRoot, bytes32 epochId, bytes32[] memory proof, address recipient, uint256[] memory _ids, uint256[] memory _values) = abi
-            .decode(data, (bytes32, bytes32, bytes32[], address, uint256[], uint256[]));
+        (bytes32 merkleRoot, bytes32 epochId, bytes32[] memory proof, address recipient, uint256[] memory ids, uint256[] memory values) = abi.decode(
+            data,
+            (bytes32, bytes32, bytes32[], address, uint256[], uint256[])
+        );
 
         if (!roots[merkleRoot]) revert InvalidMerkleRoot(merkleRoot);
 
-        bytes32 leaf = keccak256(abi.encodePacked(recipient, _ids, _values, value, epochId));
+        bytes32 leaf = keccak256(abi.encodePacked(recipient, ids, values, value, epochId));
 
-        if (!proof.verify(merkleRoot, leaf)) revert InvalidProof(recipient, _ids, _values, value, epochId);
-        if (claimed[leaf]) revert AlreadyClaimed(recipient, _ids, _values, value, epochId);
+        if (!proof.verify(merkleRoot, leaf)) revert InvalidProof(recipient, ids, values, value, epochId);
+        if (claimed[leaf]) revert AlreadyClaimed(recipient, ids, values, value, epochId);
 
         address payable payoutWallet = PayoutWalletStorage.layout().payoutWallet();
         FEE_CONTRACT.transfer(payoutWallet, value);
         claimed[leaf] = true;
-        REWARD_CONTRACT.safeBatchMint(recipient, _ids, _values, "");
-        emit PayoutClaimed(merkleRoot, epochId, value, recipient, _ids, _values);
+        REWARD_CONTRACT.safeBatchMint(recipient, ids, values, "");
+        emit PayoutClaimed(merkleRoot, epochId, value, recipient, ids, values);
 
         return IERC20Receiver.onERC20Received.selector;
     }
