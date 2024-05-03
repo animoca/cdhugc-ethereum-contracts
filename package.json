@@ -1,12 +1,12 @@
 {
-  "name": "@animoca/cdhugc-ethereum-contracts",
+  "name": "@animoca/chaoskingdom-ethereum-contracts",
   "version": "0.1.2",
-  "description": "CDH Solidity Contracts",
+  "description": "Chaos Kingdom Solidity Contracts",
   "author": "Animoca Brands",
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git@gitlab.outblaze.net:cdhugc/contracts/cdhugc-ethereum-contracts.git"
+    "url": "git@gitlab.outblaze.net:cdhugc/contracts/chaoskingdom-ethereum-contracts.git"
   },
   "scripts": {
     "postinstall": "bash -c 'for cfg in .vscode/settings.json .vscode/extensions.json .vscode/launch.json; do cp -n ${cfg}.default ${cfg} || :; done'",

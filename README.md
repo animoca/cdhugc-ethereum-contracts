@@ -1,16 +1,6 @@
-# Animoca Ethereum Contracts - template
+# Chaos Kingdom Ethereum Contracts
 
-[![NPM Package](https://img.shields.io/npm/v/@animoca/template-ethereum-contracts.svg)](https://www.npmjs.org/package/@animoca/template-ethereum-contracts)
-[![Coverage Status](https://codecov.io/gh/animoca/template-ethereum-contracts/graph/badge.svg)](https://codecov.io/gh/animoca/template-ethereum-contracts)
-
-Solidity contracts project template.
-
-## Audits
-
-| Date       | Scope        | Commit                                                                                                                                  | Package version                                                            | Auditor                             | Report                                                                                    |
-| ---------- | ------------ | --------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------- | ----------------------------------- | ----------------------------------------------------------------------------------------- |
-| xx/xx/xxxx | xxxx | [commit-hash](https://github.com/animoca/template-ethereum-contracts/tree/commit-hash) | [x.x.x](https://www.npmjs.com/package/@animoca/ethereum-contracts/v/0.2.0) | [xxxx](https://) | [link](/audit/xxxx) |
-
+This project contains the solidity contracts for the Chaos Kingdom project.
 ## Development
 
 Install the dependencies:
