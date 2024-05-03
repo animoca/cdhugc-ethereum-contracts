@@ -1,12 +1,12 @@
 {
-  "name": "@animoca/cdhugc-contracts-contract",
-  "version": "0.1.1",
+  "name": "@animoca/cdhugc-ethereum-contracts",
+  "version": "0.1.2",
   "description": "CDH Solidity Contracts",
   "author": "Animoca Brands",
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git@gitlab.outblaze.net:cdhugc/contracts/cdhugc-contracts-contract.git"
+    "url": "git@gitlab.outblaze.net:cdhugc/contracts/cdhugc-ethereum-contracts.git"
   },
   "scripts": {
     "postinstall": "bash -c 'for cfg in .vscode/settings.json .vscode/extensions.json .vscode/launch.json; do cp -n ${cfg}.default ${cfg} || :; done'",

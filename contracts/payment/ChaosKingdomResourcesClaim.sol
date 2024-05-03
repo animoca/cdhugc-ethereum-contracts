@@ -4,11 +4,10 @@ pragma solidity 0.8.22;
 import {MerkleProof} from "@openzeppelin/contracts/utils/cryptography/MerkleProof.sol";
 import {ContractOwnershipStorage} from "@animoca/ethereum-contracts/contracts/access/libraries/ContractOwnershipStorage.sol";
 import {ContractOwnership} from "@animoca/ethereum-contracts/contracts/access/ContractOwnership.sol";
-import {IERC20SafeTransfers} from "@animoca/ethereum-contracts/contracts/token/ERC20/interfaces/IERC20SafeTransfers.sol";
+import {IERC20} from "@animoca/ethereum-contracts/contracts/token/ERC20/interfaces/IERC20.sol";
 import {IERC20Receiver} from "@animoca/ethereum-contracts/contracts/token/ERC20/interfaces/IERC20Receiver.sol";
 import {ERC20Receiver} from "@animoca/ethereum-contracts/contracts/token/ERC20/ERC20Receiver.sol";
 import {IERC1155Mintable} from "@animoca/ethereum-contracts/contracts/token/ERC1155/interfaces/IERC1155Mintable.sol";
-import {Context} from "@openzeppelin/contracts/utils/Context.sol";
 import {TokenRecovery} from "@animoca/ethereum-contracts/contracts/security/TokenRecovery.sol";
 import {PayoutWalletStorage} from "@animoca/ethereum-contracts/contracts/payment/libraries/PayoutWalletStorage.sol";
 import {PayoutWallet} from "@animoca/ethereum-contracts/contracts/payment/PayoutWallet.sol";
@@ -22,7 +21,7 @@ contract ChaosKingdomResourcesClaim is ContractOwnership, ERC20Receiver, TokenRe
     mapping(bytes32 => bool) public claimed;
 
     IERC1155Mintable public immutable REWARD_CONTRACT;
-    IERC20SafeTransfers public immutable FEE_CONTRACT;
+    IERC20 public immutable FEE_CONTRACT;
 
     event MerkleRootAdded(bytes32 indexed root);
 
@@ -41,7 +40,7 @@ contract ChaosKingdomResourcesClaim is ContractOwnership, ERC20Receiver, TokenRe
     error InvalidFeeContract(address receivedContract, address expectedContract);
 
     constructor(
-        IERC20SafeTransfers feeContract,
+        IERC20 feeContract,
         IERC1155Mintable rewardContract,
         address payable payoutWallet
     ) ContractOwnership(msg.sender) PayoutWallet(payoutWallet) {
@@ -52,21 +51,23 @@ contract ChaosKingdomResourcesClaim is ContractOwnership, ERC20Receiver, TokenRe
     function onERC20Received(address, address, uint256 value, bytes calldata data) external override returns (bytes4 magicValue) {
         if (address(FEE_CONTRACT) != msg.sender) revert InvalidFeeContract(msg.sender, address(FEE_CONTRACT));
 
-        (bytes32 merkleRoot, bytes32 epochId, bytes32[] memory proof, address recipient, uint256[] memory _ids, uint256[] memory _values) = abi
-            .decode(data, (bytes32, bytes32, bytes32[], address, uint256[], uint256[]));
+        (bytes32 merkleRoot, bytes32 epochId, bytes32[] memory proof, address recipient, uint256[] memory ids, uint256[] memory values) = abi.decode(
+            data,
+            (bytes32, bytes32, bytes32[], address, uint256[], uint256[])
+        );
 
         if (!roots[merkleRoot]) revert InvalidMerkleRoot(merkleRoot);
 
-        bytes32 leaf = keccak256(abi.encodePacked(recipient, _ids, _values, value, epochId));
+        bytes32 leaf = keccak256(abi.encodePacked(recipient, ids, values, value, epochId));
 
-        if (claimed[leaf]) revert AlreadyClaimed(recipient, _ids, _values, value, epochId);
-        if (!proof.verify(merkleRoot, leaf)) revert InvalidProof(recipient, _ids, _values, value, epochId);
+        if (claimed[leaf]) revert AlreadyClaimed(recipient, ids, values, value, epochId);
+        if (!proof.verify(merkleRoot, leaf)) revert InvalidProof(recipient, ids, values, value, epochId);
 
         address payable payoutWallet = PayoutWalletStorage.layout().payoutWallet();
-        FEE_CONTRACT.safeTransfer(payoutWallet, value, "");
-        REWARD_CONTRACT.safeBatchMint(recipient, _ids, _values, "");
+        FEE_CONTRACT.transfer(payoutWallet, value);
         claimed[leaf] = true;
-        emit PayoutClaimed(merkleRoot, epochId, value, recipient, _ids, _values);
+        emit PayoutClaimed(merkleRoot, epochId, value, recipient, ids, values);
+        REWARD_CONTRACT.safeBatchMint(recipient, ids, values, "");
 
         return IERC20Receiver.onERC20Received.selector;
     }
