@@ -60,8 +60,8 @@ contract ChaosKingdomResourcesClaim is ContractOwnership, ERC20Receiver, TokenRe
 
         bytes32 leaf = keccak256(abi.encodePacked(recipient, ids, values, value, epochId));
 
-        if (!proof.verify(merkleRoot, leaf)) revert InvalidProof(recipient, ids, values, value, epochId);
         if (claimed[leaf]) revert AlreadyClaimed(recipient, ids, values, value, epochId);
+        if (!proof.verify(merkleRoot, leaf)) revert InvalidProof(recipient, ids, values, value, epochId);
 
         address payable payoutWallet = PayoutWalletStorage.layout().payoutWallet();
         FEE_CONTRACT.transfer(payoutWallet, value);
