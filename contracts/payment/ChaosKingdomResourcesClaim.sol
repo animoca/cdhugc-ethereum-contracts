@@ -8,7 +8,6 @@ import {IERC20} from "@animoca/ethereum-contracts/contracts/token/ERC20/interfac
 import {IERC20Receiver} from "@animoca/ethereum-contracts/contracts/token/ERC20/interfaces/IERC20Receiver.sol";
 import {ERC20Receiver} from "@animoca/ethereum-contracts/contracts/token/ERC20/ERC20Receiver.sol";
 import {IERC1155Mintable} from "@animoca/ethereum-contracts/contracts/token/ERC1155/interfaces/IERC1155Mintable.sol";
-import {Context} from "@openzeppelin/contracts/utils/Context.sol";
 import {TokenRecovery} from "@animoca/ethereum-contracts/contracts/security/TokenRecovery.sol";
 import {PayoutWalletStorage} from "@animoca/ethereum-contracts/contracts/payment/libraries/PayoutWalletStorage.sol";
 import {PayoutWallet} from "@animoca/ethereum-contracts/contracts/payment/PayoutWallet.sol";
