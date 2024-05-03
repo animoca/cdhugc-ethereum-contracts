@@ -66,8 +66,8 @@ contract ChaosKingdomResourcesClaim is ContractOwnership, ERC20Receiver, TokenRe
         address payable payoutWallet = PayoutWalletStorage.layout().payoutWallet();
         FEE_CONTRACT.transfer(payoutWallet, value);
         claimed[leaf] = true;
-        REWARD_CONTRACT.safeBatchMint(recipient, ids, values, "");
         emit PayoutClaimed(merkleRoot, epochId, value, recipient, ids, values);
+        REWARD_CONTRACT.safeBatchMint(recipient, ids, values, "");
 
         return IERC20Receiver.onERC20Received.selector;
     }
